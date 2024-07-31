@@ -1,0 +1,68 @@
+```{r}
+#install.packages("pak")
+
+```
+
+```{r}
+#pak::pak("caret")
+```
+
+```{r}
+library(caret)
+```
+
+```{r}
+library(mlbench)
+data(Sonar) ## be sure to check the documentation of this dataset
+str(Sonar) ## view the structure
+```
+
+
+```{r}
+set.seed(700) ## chosen arbitrarily; helps with replication across runs
+inTraining <- createDataPartition(Sonar$Class, ## indicate the outcome - helps in balancing the partitions
+                                  p = .75, ## proportion used in training+ testing subset
+                                  list = FALSE)
+training <- Sonar[ inTraining,]
+holdout  <- Sonar[-inTraining,]
+
+fitControl <- trainControl(method = "repeatedcv", ## indicate that we want to do k-fold CV
+                           number = 10, ## k = 10
+                           repeats = 10) ## and repeat 10-fold CV 10 times
+```
+
+```{r}
+rfmodel <- train(Class ~ ., ## model specification: Predicting the outcome Class using all other preds
+                 data = training, ## use the training+testing subset
+                 method = "rf",
+                 trControl = fitControl, 
+                 verbose = FALSE 
+                 )
+rfmodel
+```
+
+
+```{r}
+#setting hyperparameters
+set.seed(1000)
+traininggrid <- expand.grid(mtry = seq(1,5))
+```
+
+
+```{r}
+#building random forest model
+rf_random <- train(Class ~ .,
+                 data = training, ## the dataset containing the training-testing subset
+                 method = "rf", 
+                 metric = 'Accuracy',
+                 tuneGrid = traininggrid,
+                 trControl = fitControl) 
+rf_random
+```
+```{r}
+#computing accuracy on holdoutset
+conf.matrix <- table(holdout$Class,
+                     predict(rf_random, newdata = holdout))
+pred.accuracy <- sum(diag(conf.matrix))/sum(conf.matrix) * 100
+pred.accuracy
+```

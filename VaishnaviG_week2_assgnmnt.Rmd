@@ -1,0 +1,76 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+library(MASS)
+
+data(Pima.tr)
+```
+
+```{r}
+View(Pima.tr)
+help(Pima.tr)
+```
+
+```{r}
+diabdataset <- as.data.frame(Pima.tr) # attach a label to the dataframe object
+```
+
+```{r}
+bmiValue <- ifelse(diabdataset$bmi > median(diabdataset$bmi),
+            "High", "Low")
+bmiValue <- as.factor(bmiValue)
+summary(bmiValue)
+```
+
+```{r}
+diabdataset <- data.frame(diabdataset, bmiValue)
+summary(diabdataset)
+```
+
+```{r}
+sz <- nrow(diabdataset) * 0.5
+```
+
+```{r}
+
+glmmodel.1.fit <- glm(bmiValue ~ npreg+glu+bp+skin, #model formula
+                      family=binomial, #indicate to glm() to fit a logistic reg.
+                      data=diabdataset, #indicate the dataset object
+                      subset=1:sz) # indicate which subset - first 50% rows
+```
+
+```{r}
+summary(glmmodel.1.fit) # obtain a summary of the model
+```
+
+```{r}
+glmmodel.1.probs <- predict(glmmodel.1.fit, # predict using the fitted model
+                            diabdataset[(sz+1) : nrow(diabdataset), ], # use remaining rows for testing
+                            type="response") ## produce only the predicted values
+```
+
+
+
+```{r}
+plot(glmmodel.1.probs, main="Plot of distribution of predicted probability values")
+```
+```{r}
+contrasts(bmiValue)
+```
+
+```{r}
+glmmodel.1.pred <- rep("High", length(glmmodel.1.probs)) ## vector, storing mapped values; default entries are "High".
+glmmodel.1.pred[glmmodel.1.probs > 0.5] <- "Low" ## map values exceeding 0.5 to "Low" (the remaining ones are unmodified and stay "High").
+```
+
+```{r}
+tbl.results <- table(diabdataset[(sz+1) : nrow(diabdataset), 5], ## select all rows starting after the mid-point, and in 5th column - Value. Why?
+glmmodel.1.pred)
+print(tbl.results)
+```
+
+```{r}
+## compute the accuracy by dividing the sum of correct predictions by the total number of predictions
+print (paste("Accuracy of model:", round((tbl.results[1,1] + tbl.results[2,2])/sum(tbl.results), 4)*100, "%"))======LINEAR DISCRIMINANTANALYSIS______________________________________

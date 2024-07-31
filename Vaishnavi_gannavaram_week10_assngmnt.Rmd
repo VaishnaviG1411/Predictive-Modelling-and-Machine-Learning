@@ -1,0 +1,211 @@
+Student Name: VAISHNAVI GANNAVARAM
+Instructor: Dr. Srikanth Mudigonda
+Predictive Modelling and Machine Learning\\Week 10 Assignment
+
+```{r}
+#install.packages("pak")
+
+```
+
+```{r}
+#pak::pak("caret")
+```
+
+```{r}
+library(caret)
+```
+
+```{r}
+library(mlbench)
+data(Sonar) ## be sure to check the documentation of this dataset
+str(Sonar) ## view the structure
+```
+```{r}
+summary(Sonar)
+```
+
+```{r}
+dff <- Sonar
+library(dplyr)
+dff %>% mutate_if(is.integer, as.numeric) -> 
+    dff
+dff$Class  <- as.factor(dff$Class)
+contrasts(dff$Class)
+dffn <- as.data.frame(sapply(dff[-61], scale))
+prcomps.output <- prcomp(dffn[,-61]) ## eliminate the output variable column works!
+
+summary(prcomps.output) ## look at the cumulative proportions of variance explained
+plot(prcomps.output) ## depicts the PVE across the principal components
+```
+#First 22 principal components account for 90% of varicance in the model.
+
+```{r}
+## logistic regression 
+## first, assemble a dataset with the outcome and the first 22 principal components
+ds.obj.for.log.reg <- data.frame(prcomps.output$x[,1:22], dff$Class)
+## set up the name of the final column correctly to "Class"
+names(ds.obj.for.log.reg) <- c(names(ds.obj.for.log.reg[1:22]), "Class")
+
+## next, perform the logistic regression
+model.logistic.prcom <- glm(Class ~., data = ds.obj.for.log.reg, 
+                            family = "binomial")
+summary(model.logistic.prcom)
+```
+
+```{r}
+## Next, perform logistic regression on the original dataset
+model.logistic.fulldata <- glm(Class ~., data = dff, 
+                               family = "binomial")
+summary(model.logistic.fulldata)
+```
+#AIC of the orginal total model is 122 and first 12 pc model is 186.85, 
+#Hence the orginal model performed better.
+
+```{r}
+#Next, let's see if changing the number of principal components to be included in the logistic regression would lead to a better-fitting model.
+## logistic regression 
+## assemble a dataset with the outcome and the first 16 principal components
+ds.obj.for.log.reg <- data.frame(prcomps.output$x[, 1:35], dff$Class)
+## set up the name of the final column correctly to "Class"
+names(ds.obj.for.log.reg) <- c(names(ds.obj.for.log.reg[1:35]), "Class")
+
+## next, perform the logistic regression
+model.logistic.prcom <- glm(Class ~., data = ds.obj.for.log.reg, 
+                            family = "binomial")
+summary(model.logistic.prcom)
+```
+##By considering first 16 principal components, AIC got reduced to 186.49 from 186.85 (first 22 principal components model)
+
+## Next, let us determine the optimal number of principal components using k-fold CV prediction error as the
+## model selection criterion
+
+## The overall k-fold-based CV approach
+samplesize <- nrow(ds.obj.for.log.reg)
+numfolds <- 10 # we're setting k = 10
+quotient <- samplesize %/% numfolds # the %/% operator returns the quotient of a division
+remainder <- samplesize %% numfolds # the %% operator returns the remainder of a division
+vctsizes <- rep(quotient, numfolds) # create a vector representing the initial subsets with size = quotient
+if(remainder > 0){
+    for(i in 1:remainder){
+        vctsizes[i] <- vctsizes[i] + 1 # for the "remainder" number of subsets, add one to their size
+    }
+}
+```
+
+
+```{r}
+set.seed(1111)
+
+#prcomps.output <- prcomp(dff[,-61]) ## eliminate the output variable column works!
+
+# We will use two markers for keeping track of the start and end row numbers
+# and will go through the subsets, starting with the first one. Each subset we select
+# in terms of the end points, will be used as the testing data subset. The remaining rows
+# will be used as the training data subset.
+maxprcomp <- 22 # indicates the highest number of principal components used
+vctPrCompAccuracies <- numeric(length(maxprcomp))
+for (numcomps in 1:maxprcomp){
+    start <- 1
+    vctAccuracies <- numeric(length(vctsizes))
+    ## numcomps <- 5
+    ds.obj.for.log.reg <- data.frame(prcomps.output$x[, 1:numcomps], dff$Class)
+
+    names(ds.obj.for.log.reg) <- c(sapply(1:numcomps,
+                                          function(x){
+                                              paste("PC",x,sep="",collapse="")}
+                                          ), "Class")
+
+
+    ## print(names(ds.obj.for.log.reg))
+    ## print(paste("No. columns:", ncol(ds.obj.for.log.reg)))    
+    ## readline("Enter enter")
+    for(kth in 1:length(vctsizes)){
+        end <- start + vctsizes[kth] - 1
+        trainds <- ds.obj.for.log.reg[-(start:end),]
+        testds <- ds.obj.for.log.reg[(start:end), ]
+        model <- glm(Class ~., data = ds.obj.for.log.reg, family = "binomial") 
+        pred <- predict(model, newdata=testds, type="response")
+        #pred.classes <- rep("benign", length(pred))
+        #pred.classes[pred>=0.5] <- "malignant"
+        tbl.results <- table(as.factor(testds$Class), pred)
+        accuracy <- (tbl.results[1,1] + tbl.results[2,2])/sum(tbl.results)
+        vctAccuracies[kth] <- accuracy
+        start <- end + 1
+    } 
+    vctPrCompAccuracies[numcomps] <- mean(vctAccuracies)
+}
+
+which.max(vctPrCompAccuracies)
+```
+
+```{r}
+vctPrCompAccuracies
+```
+
+```{r}
+dff22pc <- data.frame(prcomps.output$x[, 1:22], dff$Class)
+summary(dff22pc)
+
+```
+```{r}
+set.seed(1111)
+trainIndices <- createDataPartition(dff22pc$dff.Class, ## indicate which var. is outcome
+                                  p = 0.75, # indicate proportion to use in training-testing
+                                  list = FALSE, 
+                                  times = 1)
+training <- dff22pc[trainIndices,]
+holdout <- dff22pc[-trainIndices,]
+
+
+## centering and scaling as part of the pre-processing step
+preProcValues <- preProcess(training, method = c("center", "scale"))
+#preProcValues <- preProcess(training, method = "pca")
+preProcValues
+## Next, create the scaled+centered of the training+testing subset of the dataset
+trainTransformed <- predict(preProcValues,training) 
+trainTransformed
+## apply the same scaling and centering on the holdout set, too
+holdoutTransformed <- predict(preProcValues,holdout)
+holdoutTransformed
+```
+
+```{r}
+## create settings for cross-validation to be used
+## we will use repeated k-fold CV. For the sake of time
+## we will use 5-fold CV with 3 repetitions
+fitControl <- trainControl(
+  method = "repeatedcv", ## perform repeated k-fold CV
+  number = 5,
+  repeats = 3,
+  classProbs = FALSE)
+```
+
+```{r}
+grid <- expand.grid(mtry = 1:(ncol(trainTransformed)-1)) 
+
+
+
+forestfit <- train(dff.Class ~ .,
+                   data = trainTransformed, 
+                   method = "rf",
+                   trControl = fitControl,
+                   verbose = FALSE,
+                   tuneGrid = grid)
+forestfit
+```
+
+```{r}
+## make predictions on the hold-out set
+predvals <- predict(forestfit, holdoutTransformed)
+
+## create the confusion matrix and view the results
+confusionMatrix(predvals, holdoutTransformed$dff.Class)
+```
+
+#THE PCA model is accounted for 76.47 accuracy, where as the previous assignment 9 model performed better with 88.23529 accuracy. The accuracy values differ by 12% approximately. Therefore, we can say that, for this particular data set the approach B performed better than PCA approach.
+
+```{r}
+## Rank the variables in terms of their importance
+varImp(forestfit)
+```
+# principal component 3 is the most significant one and the principal component 17 is the least significant.

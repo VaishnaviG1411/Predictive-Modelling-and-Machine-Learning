@@ -1,0 +1,367 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+#loading and checking the dataset
+dataset_MT <- read.csv("C:/Mchne lrng & predmod/ML_Midterm_exam_V/dataset.MT.csv")
+View(dataset_MT)
+summary(dataset_MT)
+```
+```{r}
+#removing first column from the dataframe
+new_dfMT <- subset(dataset_MT, select = -c(X))
+```
+
+```{r}
+for(i in 1:3){
+  SHUFFLEDnew_dfMT <- new_dfMT[sample(nrow(new_dfMT)), ]  
+}
+
+```
+
+```{R}
+#checking summary
+#View(SHUFFLEDnew_dfMT)
+summary(SHUFFLEDnew_dfMT)
+```
+
+```{r}
+#plotting ggpairs to understand the joint distributions within each pair of variables.
+library("ggplot2")                      
+library("GGally") 
+ggpairs(SHUFFLEDnew_dfMT)
+```
+
+a strong correlation exists between (x2 and x1), (x3 and x1), (y and x1), (x3 
+and x2), (y and x2), (y and x3). the outcome variable "y" has a strong correlation with all the predictors 
+except with the x4
+
+```{r}
+SHUFFLEDnew_dfMT<-na.omit(SHUFFLEDnew_dfMT)
+
+library(caret)
+library(dplyr)
+library(forcats)
+
+set.seed(500) ## chosen arbitrarily; helps with replication across runs
+inTraining <- createDataPartition(SHUFFLEDnew_dfMT$Y , ## indicate the outcome - helps in balancing the partitions
+                                  p = .90, ## proportion used in training+ testing subset
+                                  list = FALSE)
+training <-SHUFFLEDnew_dfMT[ inTraining,]
+holdout  <- SHUFFLEDnew_dfMT[-inTraining,]
+
+## centering and scaling as part of the pre-processing step
+preProcValues <- preProcess(training, method = c("center", "scale"))
+#preProcValues <- preProcess(training, method = "pca")
+preProcValues
+## Next, create the scaled+centered of the training+testing subset of the dataset
+trainTransformed <- predict(preProcValues,training) 
+trainTransformed
+## apply the same scaling and centering on the holdout set, too
+holdoutTransformed <- predict(preProcValues,holdout)
+holdoutTransformed
+
+
+fitControl <- trainControl(method = "repeatedcv", ## indicate that we want to do k-fold CV
+                           number = 10, ## k = 10
+                           repeats = 10) ## and repeat 10-fold CV 10 times
+```
+
+```{r}
+plassofit<- train(Y ~ .,
+                    data = trainTransformed,
+                    method = "glmnet",
+                  metric = 'RMSE',
+                trControl=fitControl,
+                preProc = c("center","scale"),
+                tuneGrid = expand.grid(alpha = 1,
+                                       lambda = 0))
+plassofit
+```
+```{r}
+ test_pred.plasso <- predict(plassofit, newdata = trainTransformed)
+
+ 
+RMSE(test_pred.plasso, trainTransformed$Y )
+```
+
+```{r}
+pred.plasso <- predict(plassofit, newdata = holdoutTransformed)
+
+ 
+RMSE(pred.plasso, holdoutTransformed$Y )
+```
+
+#REMOVING X4
+```{r}
+plassofit4<- train(Y ~ X1+X2+X3,
+                    data = trainTransformed,
+                    method = "glmnet",
+                  metric = 'RMSE',
+                trControl=fitControl,
+                preProc = c("center","scale"),
+                tuneGrid = expand.grid(alpha = 1,
+                                       lambda = 0))
+plassofit4
+```
+
+```{r}
+pred.plasso4 <- predict(plassofit4, newdata = trainTransformed)
+
+ 
+RMSE(pred.plasso4, trainTransformed$Y )
+```
+
+```{r}
+pred.plasso4 <- predict(plassofit4, newdata = holdoutTransformed)
+
+ 
+RMSE(pred.plasso4, holdoutTransformed$Y )
+```
+
+
+#REMOVING X3
+```{r}
+plassofit3<- train(Y ~ X1+X2+X4,
+                    data = trainTransformed,
+                    method = "glmnet",
+                  metric = 'RMSE',
+                trControl=fitControl,
+                preProc = c("center","scale"),
+                tuneGrid = expand.grid(alpha = 1,
+                                       lambda = 0))
+plassofit3
+```
+
+```{r}
+pred.plasso3 <- predict(plassofit3, newdata = trainTransformed)
+
+ 
+RMSE(pred.plasso3, trainTransformed$Y )
+```
+
+```{r}
+pred.plasso3 <- predict(plassofit3, newdata = holdoutTransformed)
+
+ 
+RMSE(pred.plasso3, holdoutTransformed$Y )
+```
+
+
+
+#REMOVING X2
+```{r}
+plassofit2<- train(Y ~ X1+X3+X4,
+                    data = trainTransformed,
+                    method = "glmnet",
+                  metric = 'RMSE',
+                trControl=fitControl,
+                preProc = c("center","scale"),
+                tuneGrid = expand.grid(alpha = 1,
+                                       lambda = 0))
+plassofit2
+```
+
+```{r}
+pred.plasso2 <- predict(plassofit2, newdata = trainTransformed)
+
+ 
+RMSE(pred.plasso2, trainTransformed$Y )
+```
+
+```{r}
+pred.plasso2 <- predict(plassofit2, newdata = holdoutTransformed)
+
+
+RMSE(pred.plasso2, holdoutTransformed$Y )
+```
+
+
+#REMOVING X1
+```{r}
+plassofit1<- train(Y ~ X3+X2+X4,
+                    data = trainTransformed,
+                    method = "glmnet",
+                  metric = 'RMSE',
+                trControl=fitControl,
+                preProc = c("center","scale"),
+                tuneGrid = expand.grid(alpha = 1,
+                                       lambda = 0))
+plassofit1
+```
+
+```{r}
+pred.plasso1 <- predict(plassofit1, newdata = trainTransformed)
+
+ 
+RMSE(pred.plasso1, trainTransformed$Y )
+```
+
+```{r}
+pred.plasso1 <- predict(plassofit1, newdata = holdoutTransformed)
+
+ 
+RMSE(pred.plasso1, holdoutTransformed$Y )
+```
+
+
+
+
+
+
+
+
+
+
+
+
+###############################SVM#######################################
+```{r}
+svmfit<- train(Y ~ .,
+                    data = trainTransformed,
+                    method = "svmLinear",
+                  metric = 'RMSE',
+                trControl=fitControl,
+                preProc = c("center","scale"))
+                
+svmfit
+```
+
+```{r}
+ pred.svm <- predict(svmfit, newdata = trainTransformed)
+
+ 
+RMSE(pred.svm, trainTransformed$Y )
+```
+
+```{r}
+ pred.svm <- predict(svmfit, newdata = holdoutTransformed)
+
+ 
+RMSE(pred.svm, holdoutTransformed$Y )
+```
+
+##REMOVING X4
+```{r}
+library(caret)
+svmfit4<- train(Y ~ X1+X2+X3,
+                    data = trainTransformed,
+                    method = "svmLinear",
+                  metric = 'RMSE',
+                trControl=fitControl,
+                preProc = c("center","scale"))
+                
+svmfit4
+```
+
+```{r}
+ pred.svm4 <- predict(svmfit4, newdata = trainTransformed)
+
+ 
+RMSE(pred.svm4, trainTransformed$Y )
+```
+
+```{r}
+ pred.svm4 <- predict(svmfit4, newdata = holdoutTransformed)
+
+ 
+RMSE(pred.svm4, holdoutTransformed$Y )
+```
+
+#REMOVING X3
+```{r}
+library(caret)
+svmfit3<- train(Y ~ X1+X2+X4,
+                    data = trainTransformed,
+                    method = "svmLinear",
+                  metric = 'RMSE',
+                trControl=fitControl,
+                preProc = c("center","scale"))
+                
+svmfit3
+```
+
+```{r}
+pred.svm3 <- predict(svmfit3, newdata = trainTransformed)
+
+ 
+RMSE(pred.svm3, trainTransformed$Y )
+```
+
+```{r}
+pred.svm3 <- predict(svmfit3, newdata = holdoutTransformed)
+
+ 
+RMSE(pred.svm3, holdoutTransformed$Y )
+```
+
+#REMOVING X2
+```{r}
+library(caret)
+svmfit2<- train(Y ~ X1+X3+X4,
+                    data = trainTransformed,
+                    method = "svmLinear",
+                  metric = 'RMSE',
+                trControl=fitControl,
+                preProc = c("center","scale"))
+                
+svmfit2
+```
+
+
+```{r}
+pred.svm2 <- predict(svmfit2, newdata = trainTransformed)
+
+ 
+RMSE(pred.svm2, trainTransformed$Y )
+```
+
+```{r}
+pred.svm2 <- predict(svmfit2, newdata = holdoutTransformed)
+
+ 
+RMSE(pred.svm2, holdoutTransformed$Y )
+```
+
+#REMOVING X1
+```{r}
+library(caret)
+svmfit1<- train(Y ~ X2+X3+X4,
+                    data = trainTransformed,
+                    method = "svmLinear",
+                  metric = 'RMSE',
+                trControl=fitControl,
+                preProc = c("center","scale"))
+                
+svmfit1
+```
+
+```{r}
+pred.svm1 <- predict(svmfit1, newdata = trainTransformed)
+
+ 
+RMSE(pred.svm1, trainTransformed$Y )
+```
+
+```{r}
+pred.svm1 <- predict(svmfit1, newdata = holdoutTransformed)
+
+ 
+RMSE(pred.svm1, holdoutTransformed$Y )
+```
+```{r}
+
+library(mlbench)
+library(caret)
+results <- resamples(list(svm= svmfit, PLasso=plassofit))
+# summarize the distributions
+summary(results)
+# boxplots of results
+bwplot(results)
+# dot plots of results
+dotplot(results)
+
+```

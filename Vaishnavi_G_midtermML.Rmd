@@ -1,0 +1,357 @@
+HDS 5330 Predictive modelling and Machine Learning
+Exam 1
+Instructor: Dr.Srikanth Mudigonda
+Student Name: Vaishnavi Gannavaram
+
+```{r}
+#loading and checking the dataset
+dataset_MT <- read.csv("dataset.MT.csv")
+View(dataset_MT)
+summary(dataset_MT)
+```
+
+
+```{r}
+#removing first column from the dataframe
+new_dfMT <- subset(dataset_MT, select = -c(X))
+```
+
+```{R}
+#checking summary
+View(new_dfMT)
+summary(new_dfMT)
+```
+
+```{r}
+#plotting ggpairs to understand the joint distributions within each pair of variables.
+library("ggplot2")                      
+library("GGally") 
+ggpairs(new_dfMT)
+```
+#We can observe that strong co-relation exists between (x2 and x1),(x3 and x1), (y and x1), (x3 and x2), (y and x2), (y and x3).
+#Therefore we can say that the outcome variable "y" has strong co-relation with all the predictors except with the x4. 
+
+```{r}
+sz = 0.1 * nrow(new_dfMT) ## size of holdout set as a proportion of data
+holdoutrows = 1:sz
+## train_test_rows = new_dfMT[-(1:sz), ]
+```
+
+```{R}
+train_test_rows = new_dfMT[-(1:sz), ]
+ggpairs(train_test_rows )
+
+```
+
+
+```{r}
+Xx <- model.matrix( Y~., new_dfMT[-holdoutrows, ]) ## matrix of predictors
+Yy <- new_dfMT[-holdoutrows,]$Y # vector of outputs
+
+## create a range of values for lambda - the tuning parameter
+grid <- 10 ^ seq(10, -2, length = 50)
+
+
+########ridge##############
+library(MASS)
+library(glmnet)
+set.seed(1)
+cv.ridge.output <- cv.glmnet(x = Xx, y = Yy, alpha = 0, lambda = grid)
+cv.ridge.output
+
+#png(filename="lambda-mse-ridge.png")
+plot(cv.ridge.output) #plot log of lambda vs. cross-validation errors
+#dev.off()
+
+names(cv.ridge.output) # see what fields are available
+names(cv.ridge.output$glmnet.fit)
+# use the predict function for obtaining the estimated coefficients
+# that correspond to the minimum estimated value of lambda.
+round(predict(cv.ridge.output, type="coefficients", s = cv.ridge.output$lambda.min), 4)
+cv.ridge.output$lambda.1se
+```
+
+```{r}
+round(predict(cv.ridge.output, type="coefficients", s = cv.ridge.output$cvm), 4)
+```
+
+```{r}
+round(predict(cv.ridge.output, type="coefficients", s = cv.ridge.output$lambda.1se), 4)
+```
+
+```{r}
+round(predict(cv.ridge.output, type="coefficients", s = cv.ridge.output$cvlo), 4)
+```
+
+```{r}
+round(predict(cv.ridge.output, type="coefficients", s = cv.ridge.output$cvsd), 6)
+```
+
+```{r}
+##ridge holdout  : make predictions on the holdout and compute hold-out prediction errors
+Xxh <- model.matrix(Y ~ ., new_dfMT[holdoutrows, ]) ## matrix of predictors
+Yyh <- new_dfMT[holdoutrows,]$Y # vector of outputs
+
+## create a range of values for lambda - the tuning parameter
+grid <- 10 ^ seq(10, -2, length = 50)
+set.seed(1)
+cv.ridge.outputholdout <- cv.glmnet(x = Xxh, y = Yyh, alpha = 0, lambda = grid)
+cv.ridge.outputholdout
+
+## ridge holdout rmse
+ridge.preds <- predict(cv.ridge.outputholdout, 
+                       s = cv.ridge.outputholdout$lambda.min,
+                       newx = Xxh)
+ridgeholdout.rmse <- sqrt(mean((ridge.preds - Yyh)^2))
+ridgeholdout.rmse
+```
+
+
+
+
+```{r}
+############Lasso#######################################
+
+Xx <- model.matrix( Y~ ., new_dfMT[-holdoutrows, ]) ## matrix of predictors
+Yy <- new_dfMT[-holdoutrows,]$Y # vector of outputs
+
+## create a range of values for lambda - the tuning parameter
+grid <- 10 ^ seq(10, -2, length = 50)
+set.seed(1)
+cv.lasso.output <- cv.glmnet(x = Xx, y = Yy, alpha = 1, lambda = grid)
+
+#png(filename="lambda-mse-lasso.png")
+plot(cv.lasso.output) #plot log of lambda vs. cross-validation errors
+#dev.off()
+
+names(cv.lasso.output) # see what fields are available
+names(cv.lasso.output$glmnet.fit)
+# use the predict function for obtaining the estimated coefficients
+# that correspond to the minimum estimated value of lambda.
+round(predict(cv.lasso.output, type="coefficients", s = cv.lasso.output$lambda.min), 6)
+```
+
+```{r}
+round(predict(cv.lasso.output, type="coefficients", s = cv.lasso.output$lambda.1se), 6)
+```
+
+
+```{r}
+round(predict(cv.lasso.output, type="coefficients", s = cv.lasso.output$cvm), 6)
+```
+
+```{r}
+round(predict(cv.lasso.output, type="coefficients", s = cv.lasso.output$cvlo), 6)
+```
+
+```{r}
+round(predict(cv.lasso.output, type="coefficients", s = cv.lasso.output$cvsd), 6)
+```
+
+```{r}
+##lasso holdout  : make predictions on the holdout and compute hold-out prediction errors
+Xxh <- model.matrix(Y ~ ., new_dfMT[holdoutrows, ]) ## matrix of predictors
+Yyh <- new_dfMT[holdoutrows,]$Y # vector of outputs
+
+## create a range of values for lambda - the tuning parameter
+grid <- 10 ^ seq(10, -2, length = 50)
+set.seed(1)
+cv.lasso.outputholdout <- cv.glmnet(x = Xxh, y = Yyh, alpha = 1, lambda = grid)
+cv.lasso.outputholdout
+
+lasso.preds <- predict(cv.lasso.outputholdout, 
+                       s = cv.lasso.outputholdout$lambda.1se,
+                       newx = Xxh)
+lassoholdout.rmse <- sqrt(mean((lasso.preds- Yyh)^2))
+lassoholdout.rmse
+```
+
+```{r}
+## which of the two is higher?
+ifelse(lassoholdout.rmse > ridgeholdout.rmse,
+       "Lasso has a higher RMSE => worse performance than ridge",
+       "Ridge has a higher RMSE => worse performance  than lasso")
+```
+
+
+
+################################################################################################################################################################################################
+         SHUFFLING AND THEN PERFORMING THE SAME STEPS 
+################################################################################################################################################################################################
+
+
+
+```{r}
+#loading and checking the dataset
+dataset_MT <- read.csv("dataset.MT.csv")
+View(dataset_MT)
+summary(dataset_MT)
+```
+
+
+```{r}
+#removing first column from the dataframe
+new_dfMT <- subset(dataset_MT, select = -c(X))
+new_dfMT
+```
+
+```{R}
+for(i in 1:3){
+  SHUFFLEDnew_dfMT <- SHUFFLEDnew_dfMT[sample(nrow(new_dfMT)), ]  
+}
+
+```
+
+
+```{R}
+#checking summary
+View(SHUFFLEDnew_dfMT)
+summary(SHUFFLEDnew_dfMT)
+```
+
+```{r}
+#plotting ggpairs to understand the joint distributions within each pair of variables.
+library("ggplot2")                      
+library("GGally") 
+ggpairs(SHUFFLEDnew_dfMT)
+```
+
+
+```{r}
+sz = 0.1 * nrow(SHUFFLEDnew_dfMT) ## size of holdout set as a proportion of data
+holdoutrows = 1:sz
+## train_test_rows = SHUFFLEDnew_dfMT[-(1:sz), ]
+```
+
+```{r}
+SXx <- model.matrix( Y~ ., SHUFFLEDnew_dfMT[-holdoutrows, ]) ## matrix of predictors
+SYy <- SHUFFLEDnew_dfMT[-holdoutrows,]$Y # vector of outputs
+
+## create a range of values for lambda - the tuning parameter
+grid <- 10 ^ seq(10, -2, length = 50)
+
+
+########ridge##############
+library(MASS)
+library(glmnet)
+set.seed(1)
+Scv.ridge.output <- cv.glmnet(x = SXx, y = SYy, alpha = 0, lambda = grid)
+Scv.ridge.output
+
+#png(filename="lambda-mse-ridge.png")
+plot(Scv.ridge.output) #plot log of lambda vs. cross-validation errors
+#dev.off()
+
+names(Scv.ridge.output) # see what fields are available
+names(Scv.ridge.output$glmnet.fit)
+# use the predict function for obtaining the estimated coefficients
+# that correspond to the minimum estimated value of lambda.
+round(predict(Scv.ridge.output, type="coefficients", s = Scv.ridge.output$lambda.min), 4)
+```
+
+```{r}
+round(predict(Scv.ridge.output, type="coefficients", s = Scv.ridge.output$cvm), 4)
+```
+
+```{r}
+round(predict(Scv.ridge.output, type="coefficients", s = Scv.ridge.output$lambda.1se), 4)
+```
+
+```{r}
+round(predict(Scv.ridge.output, type="coefficients", s = Scv.ridge.output$cvlo), 4)
+```
+
+```{r}
+round(predict(Scv.ridge.output, type="coefficients", s = Scv.ridge.output$cvsd), 6)
+```
+
+```{r}
+##ridge holdout  : make predictions on the holdout and compute hold-out prediction errors
+SXxh <- model.matrix(Y ~ ., SHUFFLEDnew_dfMT[holdoutrows, ]) ## matrix of predictors
+SYyh <- SHUFFLEDnew_dfMT[holdoutrows,]$Y # vector of outputs
+
+## create a range of values for lambda - the tuning parameter
+grid <- 10 ^ seq(10, -2, length = 50)
+set.seed(1)
+Scv.ridge.outputholdout <- cv.glmnet(x = SXxh, y = SYyh, alpha = 0, lambda = grid)
+Scv.ridge.outputholdout
+
+## ridge holdout rmse
+Sridge.preds <- predict(Scv.ridge.outputholdout, 
+                       s = Scv.ridge.outputholdout$lambda.min,
+                       newx = SXxh)
+Sridgeholdout.rmse <- sqrt(mean((Sridge.preds - SYyh)^2))
+Sridgeholdout.rmse
+```
+
+
+
+
+```{r}
+############Lasso#######################################
+
+SXx <- model.matrix( Y~ ., SHUFFLEDnew_dfMT[-holdoutrows, ]) ## matrix of predictors
+SYy <- SHUFFLEDnew_dfMT[-holdoutrows,]$Y # vector of outputs
+
+## create a range of values for lambda - the tuning parameter
+grid <- 10 ^ seq(10, -2, length = 50)
+set.seed(1)
+Scv.lasso.output <- cv.glmnet(x = SXx, y = SYy, alpha = 1, lambda = grid)
+
+#png(filename="lambda-mse-lasso.png")
+plot(Scv.lasso.output) #plot log of lambda vs. cross-validation errors
+#dev.off()
+
+names(Scv.lasso.output) # see what fields are available
+names(Scv.lasso.output$glmnet.fit)
+# use the predict function for obtaining the estimated coefficients
+# that correspond to the minimum estimated value of lambda.
+round(predict(Scv.lasso.output, type="coefficients", s = Scv.lasso.output$lambda.min), 6)
+```
+
+
+
+```{r}
+round(predict(Scv.lasso.output, type="coefficients", s = Scv.lasso.output$lambda.1se), 6)
+```
+
+
+```{r}
+round(predict(Scv.lasso.output, type="coefficients", s = Scv.lasso.output$cvm), 6)
+```
+
+```{r}
+round(predict(Scv.lasso.output, type="coefficients", s = Scv.lasso.output$cvlo), 6)
+```
+
+```{r}
+round(predict(Scv.lasso.output, type="coefficients", s = Scv.lasso.output$cvsd), 6)
+```
+
+```{r}
+##lasso holdout  : make predictions on the holdout and compute hold-out prediction errors
+SXxh <- model.matrix(Y ~ ., SHUFFLEDnew_dfMT[holdoutrows, ]) ## matrix of predictors
+SYyh <- SHUFFLEDnew_dfMT[holdoutrows,]$Y # vector of outputs
+
+## create a range of values for lambda - the tuning parameter
+grid <- 10 ^ seq(10, -2, length = 50)
+set.seed(1)
+Scv.lasso.outputholdout <- cv.glmnet(x = SXxh, y = SYyh, alpha = 1, lambda = grid)
+Scv.lasso.outputholdout
+
+Slasso.preds <- predict(Scv.lasso.outputholdout, 
+                       s = Scv.lasso.outputholdout$lambda.1se,
+                       newx = SXxh)
+Slassoholdout.rmse <- sqrt(mean((Slasso.preds- SYyh)^2))
+Slassoholdout.rmse
+```
+
+```{r}
+## which of the two is higher?
+ifelse(Slassoholdout.rmse > Sridgeholdout.rmse,
+       "Lasso has a higher RMSE => worse performance than ridge",
+       "Ridge has a higher RMSE => worse performance  than lasso")
+```
+
+
+

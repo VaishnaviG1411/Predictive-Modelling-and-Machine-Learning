@@ -1,0 +1,151 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+source("./automate-best-subsets.R")
+library(MASS)
+dobj <- Boston
+dobj$chas <- as.factor(dobj$chas)
+predictors <- names(dobj)[-14] #exclude the final
+
+combinations  <- combn(predictors, 3)
+combinations
+
+outcome.var <-"medv"
+vct.combo.strs <- map_chr(1:ncol(combinations),
+                          function(x){reduce(combinations[, x],
+                                             paste, sep="+")})
+vct.combo.strs
+pred.comb <- vct.combo.strs[1]
+
+pred.comb
+
+get_kfold_cv_rmse(pred.comb, dobj, outcome.var, 10)
+
+vct.mod.rmses <-map_dbl(vct.combo.strs, ## vector of unique predictor combinations
+                        get_kfold_cv_rmse, ## function to compute k-fold CV RMSE for a given combination
+                        dobj,
+                        outcome.var, ## name of the outcome var
+                        10) ## 10 - number of folds
+vct.mod.rmses
+
+min(vct.mod.rmses)
+
+df.model.results <- data.frame(PRCombo = vct.combo.strs,
+                               RMSE = vct.mod.rmses)
+ind <- which(df.model.results$RMSE == min(df.model.results$RMSE))
+
+
+print(paste("The best combo. is", df.model.results$PRCombo[ind]))
+```
+```{r}
+collate_results <- function(no.preds){
+    combinations  <- combn(predictors, no.preds)
+
+    outcome.var <-"medv"
+    vct.combo.strs <- map_chr(1:ncol(combinations),
+                              function(x){reduce(combinations[, x],
+                                                 paste, sep="+")})
+    pred.comb <- vct.combo.strs[1]
+    get_kfold_cv_rmse(pred.comb, dobj, outcome.var, 10)
+
+    vct.mod.rmses <-map_dbl(vct.combo.strs, ## vector of inque predictor combinations
+                            get_kfold_cv_rmse, ## function to compute k-fold CV RMSE for a given combination
+                            dobj,
+                            outcome.var, ## name of the outcome var
+                            10) ## 10 - number of folds
+
+
+
+    df.model.results <- data.frame(PRCombo = vct.combo.strs,
+                                   RMSE = vct.mod.rmses)
+    ind <- which(df.model.results$RMSE ==
+  
+                   
+min(df.model.results$RMSE))
+    
+ind
+
+df.model.results[250,]
+
+    return(data.frame(PRCombo = df.model.results$PRCombo[ind],
+                      RMSE = df.model.results$RMSE[ind]))
+    }
+
+```
+```{r}
+source("./automate-best-subsets.R")
+library(MASS)
+dobj <- Boston
+dobj$chas <- as.factor(dobj$chas)
+predictors <- names(dobj)[-14] #exclude the final
+
+combinations  <- combn(predictors, 13)
+combinations
+
+outcome.var <-"medv"
+vct.combo.strs <- map_chr(1:ncol(combinations),
+                          function(x){reduce(combinations[, x],
+                                             paste, sep="+")})
+vct.combo.strs
+pred.comb <- vct.combo.strs[1]
+
+pred.comb
+
+get_kfold_cv_rmse(pred.comb, dobj, outcome.var, 10)
+
+vct.mod.rmses <-map_dbl(vct.combo.strs, ## vector of unique predictor combinations
+                        get_kfold_cv_rmse, ## function to compute k-fold CV RMSE for a given combination
+                        dobj,
+                        outcome.var, ## name of the outcome var
+                        10) ## 10 - number of folds
+vct.mod.rmses
+
+min(vct.mod.rmses)
+
+df.model.results <- data.frame(PRCombo = vct.combo.strs,
+                               RMSE = vct.mod.rmses)
+ind <- which(df.model.results$RMSE == min(df.model.results$RMSE))
+
+
+print(paste("The best combo. is", df.model.results$PRCombo[ind]))
+```
+
+```{r}
+
+collate_results <- function(no.preds){
+    combinations  <- combn(predictors, no.preds)
+
+    outcome.var <-"medv"
+    vct.combo.strs <- map_chr(1:ncol(combinations),
+                              function(x){reduce(combinations[, x],
+                                                 paste, sep="+")})
+    pred.comb <- vct.combo.strs[1]
+    get_kfold_cv_rmse(pred.comb, dobj, outcome.var, 10)
+
+    vct.mod.rmses <-map_dbl(vct.combo.strs, ## vector of inque predictor combinations
+                            get_kfold_cv_rmse, ## function to compute k-fold CV RMSE for a given combination
+                            dobj,
+                            outcome.var, ## name of the outcome var
+                            10) ## 10 - number of folds
+
+
+
+    df.model.results <- data.frame(PRCombo = vct.combo.strs,
+                                   RMSE = vct.mod.rmses)
+    ind <- which(df.model.results$RMSE ==
+  
+                   
+min(df.model.results$RMSE))
+    
+ind
+
+df.model.results[1,]
+
+    return(data.frame(PRCombo = df.model.results$PRCombo[ind],
+                      RMSE = df.model.results$RMSE[ind]))
+    }
+
+```

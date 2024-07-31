@@ -1,0 +1,158 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+source("./automate-best-subsets.R")
+library(MASS)
+dobj <- Boston
+dobj$chas <- as.factor(dobj$chas)
+predictors <- names(dobj)[-14] #exclude the final
+
+combinations  <- combn(predictors, 2)
+combinations
+```
+
+
+```{r}
+outcome.var <-"medv"
+vct.combo.strs <- map_chr(1:ncol(combinations),
+                          function(x){reduce(combinations[, x],
+                                             paste, sep="+")})
+vct.combo.strs
+pred.comb <- vct.combo.strs[1]
+pred.comb
+```
+
+```{r}
+
+#using source function
+get_kfold_cv_rmse(pred.comb, dobj, outcome.var, 10)
+
+vct.mod.rmses <-map_dbl(vct.combo.strs, ## vector of unique predictor combinations
+                        get_kfold_cv_rmse, ## function to compute k-fold CV RMSE for a given combination
+                        dobj,
+                        outcome.var, ## name of the outcome var
+                        10) ## 10 - number of folds
+vct.mod.rmses
+
+```
+
+```{r}
+
+
+df.model.results <- data.frame(PRCombo = vct.combo.strs,
+                               RMSE = vct.mod.rmses)
+ind <- which(df.model.results$RMSE == min(df.model.results$RMSE))
+print(paste("The best combo. is", df.model.results$PRCombo[ind]))
+```
+
+```{r}
+collate_results <- function(no.preds){
+    combinations  <- combn(predictors, no.preds)
+
+    outcome.var <-"medv"
+    vct.combo.strs <- map_chr(1:ncol(combinations),
+                              function(x){reduce(combinations[, x],
+                                                 paste, sep="+")})
+    pred.comb <- vct.combo.strs[1]
+    get_kfold_cv_rmse(pred.comb, dobj, outcome.var, 10)
+
+    vct.mod.rmses <-map_dbl(vct.combo.strs, ## vector of inque predictor combinations
+                            get_kfold_cv_rmse, ## function to compute k-fold CV RMSE for a given combination
+                            dobj,
+                            outcome.var, ## name of the outcome var
+                            10) ## 10 - number of folds
+
+
+
+    df.model.results <- data.frame(PRCombo = vct.combo.strs,
+                                   RMSE = vct.mod.rmses)
+    ind <- which(df.model.results$RMSE ==
+  
+                   
+min(df.model.results$RMSE))
+    
+ind
+
+df.model.results[57,]
+
+    return(data.frame(PRCombo = df.model.results$PRCombo[ind],
+                      RMSE = df.model.results$RMSE[ind]))
+    }
+
+```
+
+```{r}
+library(dplyr)
+max.preds <- 7
+collated.results.df <- reduce(map(seq(1,13), collate_results),
+                              bind_rows)
+collated.results.df
+
+collated.results.df["NumPredictors"] = seq(1,13)
+plot(collated.results.df$NumPredictors, collated.results.df$RMSE)
+```
+
+####################REGSUBSETS####################################
+
+```{R}
+set.seed (1)
+train <- sample (c(TRUE , FALSE), nrow (dobj),
+replace = TRUE)
+test <- (!train)
+```
+
+```{r}
+library (leaps)
+regfit.full <- regsubsets (medv ∼ ., dobj, nvmax=13)
+summary (regfit.full)
+```
+
+```{r}
+regfit.full <- regsubsets (medv ∼ ., data = dobj ,
+nvmax = 13)
+reg.summary <- summary (regfit.full)
+names (reg.summary)
+```
+
+
+```{r}
+library(leaps)
+predict.regsubsets <- function(object, newdata, id, ...) {
+  form <- as.formula(object$call[[2]])
+  mat <- model.matrix(form, newdata)
+  coefi <- coef(object, id=id)
+  xvars <- names(coefi)
+  mat[, xvars] %*% coefi
+}
+
+k <- 10
+n <- nrow(dobj)
+set.seed(224)
+folds <- sample(rep(1:k, length =n))
+cv.errors <- matrix(NA, k, 13,
+    dimnames = list(NULL, paste(1:13)))
+```
+
+```{r}
+for(j in 1:k) {
+  best.fit <- regsubsets(medv ~ ., data= dobj[folds != j,], nvmax=13)
+  for (i in 1:13) {
+    pred <- predict(best.fit, dobj[folds == j, ], id= i)
+    cv.errors[j, i ]<- sqrt(mean((dobj$medv[folds==j]- pred)^2))
+  }
+}
+```
+
+```{r}
+mean.cv.errorss <- apply(cv.errors,2,mean)
+mean.cv.errorss
+```
+
+```{r}
+reg.best <- regsubsets (medv ∼ ., data = dobj ,
+nvmax = 19)
+coef (reg.best , 10)
+```
+
